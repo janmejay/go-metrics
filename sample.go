@@ -8,7 +8,10 @@ import (
 	"time"
 )
 
-const rescaleThreshold = time.Hour
+const (
+	rescaleThreshold = time.Hour
+	minReservoirSize = 8
+)
 
 // Samples maintain a statistically-significant selection of values from
 // a stream.
@@ -35,12 +38,15 @@ type Sample interface {
 //
 // <http://dimacs.rutgers.edu/~graham/pubs/papers/fwddecay.pdf>
 type ExpDecaySample struct {
-	alpha         float64
-	count         int64
-	mutex         sync.Mutex
-	reservoirSize int
-	t0, t1        time.Time
-	values        *expDecaySampleHeap
+	alpha             float64
+	count             int64
+	mutex             sync.Mutex
+	reservoirSize     int
+	maxReservoirSize  int
+	t0, t1            time.Time
+	datapointsDropped int
+	autoResize        bool
+	values            *expDecaySampleHeap
 }
 
 // NewExpDecaySample constructs a new exponentially-decaying sample with the
@@ -50,12 +56,26 @@ func NewExpDecaySample(reservoirSize int, alpha float64) Sample {
 		return NilSample{}
 	}
 	s := &ExpDecaySample{
-		alpha:         alpha,
-		reservoirSize: reservoirSize,
-		t0:            time.Now(),
-		values:        newExpDecaySampleHeap(reservoirSize),
+		alpha:             alpha,
+		reservoirSize:     reservoirSize,
+		maxReservoirSize:  reservoirSize,
+		t0:                time.Now(),
+		values:            newExpDecaySampleHeap(reservoirSize),
+		autoResize:        false,
+		datapointsDropped: 0,
 	}
 	s.t1 = s.t0.Add(rescaleThreshold)
+	return s
+}
+
+// NewAutoSizedExpDecaySample constructs a new exponentially-decaying
+// sample with the given max reservoir size and alpha which resizes
+// itself according to utilization.
+func NewAutoSizedExpDecaySample(maxReservoirSize int, alpha float64) Sample {
+	s := NewExpDecaySample(maxReservoirSize, alpha)
+	if !UseNilMetrics {
+		s.(*ExpDecaySample).autoResize = true
+	}
 	return s
 }
 
@@ -112,6 +132,19 @@ func (s *ExpDecaySample) Size() int {
 	return s.values.Size()
 }
 
+func computeIdealReservoirSize(
+	currentReservoirSize int,
+	datapointsDropped    int,
+	maxReservoirSize     int,
+) int {
+	if datapointsDropped < (currentReservoirSize / 2) {
+		return max(currentReservoirSize/2, minReservoirSize)
+	} else if datapointsDropped/2 >= currentReservoirSize {
+		return min(currentReservoirSize*2, maxReservoirSize)
+	}
+	return currentReservoirSize
+}
+
 // Snapshot returns a read-only copy of the sample.
 func (s *ExpDecaySample) Snapshot() Sample {
 	s.mutex.Lock()
@@ -120,6 +153,23 @@ func (s *ExpDecaySample) Snapshot() Sample {
 	values := make([]int64, len(vals))
 	for i, v := range vals {
 		values[i] = v.v
+	}
+	if s.autoResize {
+		newReservoirSize := computeIdealReservoirSize(
+			s.reservoirSize,
+			s.datapointsDropped,
+			s.maxReservoirSize)
+		if newReservoirSize != s.reservoirSize {
+			s.reservoirSize = newReservoirSize
+			s.values = newExpDecaySampleHeap(s.reservoirSize)
+			for _, v := range vals {
+				if s.values.Size() == s.reservoirSize {
+					s.values.Pop()
+				}
+				s.values.Push(v)
+			}
+		}
+		s.datapointsDropped = 0
 	}
 	return &SampleSnapshot{
 		count:  s.count,
@@ -159,6 +209,20 @@ func (s *ExpDecaySample) Variance() float64 {
 	return SampleVariance(s.Values())
 }
 
+func min(a, b int) int {
+	if a > b {
+		return b
+	}
+	return a
+}
+
+func max(a, b int) int {
+	if a >= b {
+		return a
+	}
+	return b
+}
+
 // update samples a new value at a particular timestamp.  This is a method all
 // its own to facilitate testing.
 func (s *ExpDecaySample) update(t time.Time, v int64) {
@@ -167,6 +231,9 @@ func (s *ExpDecaySample) update(t time.Time, v int64) {
 	s.count++
 	if s.values.Size() == s.reservoirSize {
 		s.values.Pop()
+		if s.autoResize {
+			s.datapointsDropped++
+		}
 	}
 	s.values.Push(expDecaySample{
 		k: math.Exp(t.Sub(s.t0).Seconds()*s.alpha) / rand.Float64(),

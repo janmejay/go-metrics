@@ -66,6 +66,18 @@ func BenchmarkExpDecaySample1028(b *testing.B) {
 	benchmarkSample(b, NewExpDecaySample(1028, 0.015))
 }
 
+func BenchmarkAutoSizedExpDecaySample257(b *testing.B) {
+	benchmarkSample(b, NewAutoSizedExpDecaySample(257, 0.015))
+}
+
+func BenchmarkAutoSizedExpDecaySample514(b *testing.B) {
+	benchmarkSample(b, NewAutoSizedExpDecaySample(514, 0.015))
+}
+
+func BenchmarkAutoSizedExpDecaySample1028(b *testing.B) {
+	benchmarkSample(b, NewAutoSizedExpDecaySample(1028, 0.015))
+}
+
 func BenchmarkUniformSample257(b *testing.B) {
 	benchmarkSample(b, NewUniformSample(257))
 }
@@ -80,66 +92,75 @@ func BenchmarkUniformSample1028(b *testing.B) {
 
 func TestExpDecaySample10(t *testing.T) {
 	rand.Seed(1)
-	s := NewExpDecaySample(100, 0.99)
-	for i := 0; i < 10; i++ {
-		s.Update(int64(i))
-	}
-	if size := s.Count(); 10 != size {
-		t.Errorf("s.Count(): 10 != %v\n", size)
-	}
-	if size := s.Size(); 10 != size {
-		t.Errorf("s.Size(): 10 != %v\n", size)
-	}
-	if l := len(s.Values()); 10 != l {
-		t.Errorf("len(s.Values()): 10 != %v\n", l)
-	}
-	for _, v := range s.Values() {
-		if v > 10 || v < 0 {
-			t.Errorf("out of range [0, 10): %v\n", v)
+	fixedSizeSample := NewExpDecaySample(100, 0.99)
+	autoSizedSample := NewAutoSizedExpDecaySample(100, 0.99)
+	for _, s := range []Sample{fixedSizeSample, autoSizedSample} {
+		for i := 0; i < 10; i++ {
+			s.Update(int64(i))
+		}
+		if size := s.Count(); 10 != size {
+			t.Errorf("s.Count(): 10 != %v\n", size)
+		}
+		if size := s.Size(); 10 != size {
+			t.Errorf("s.Size(): 10 != %v\n", size)
+		}
+		if l := len(s.Values()); 10 != l {
+			t.Errorf("len(s.Values()): 10 != %v\n", l)
+		}
+		for _, v := range s.Values() {
+			if v > 10 || v < 0 {
+				t.Errorf("out of range [0, 10): %v\n", v)
+			}
 		}
 	}
 }
 
 func TestExpDecaySample100(t *testing.T) {
 	rand.Seed(1)
-	s := NewExpDecaySample(1000, 0.01)
-	for i := 0; i < 100; i++ {
-		s.Update(int64(i))
-	}
-	if size := s.Count(); 100 != size {
-		t.Errorf("s.Count(): 100 != %v\n", size)
-	}
-	if size := s.Size(); 100 != size {
-		t.Errorf("s.Size(): 100 != %v\n", size)
-	}
-	if l := len(s.Values()); 100 != l {
-		t.Errorf("len(s.Values()): 100 != %v\n", l)
-	}
-	for _, v := range s.Values() {
-		if v > 100 || v < 0 {
-			t.Errorf("out of range [0, 100): %v\n", v)
+	fixedSizeSample := NewExpDecaySample(1000, 0.01)
+	autoSizedSample := NewAutoSizedExpDecaySample(1000, 0.01)
+	for _, s := range []Sample{fixedSizeSample, autoSizedSample} {
+		for i := 0; i < 100; i++ {
+			s.Update(int64(i))
+		}
+		if size := s.Count(); 100 != size {
+			t.Errorf("s.Count(): 100 != %v\n", size)
+		}
+		if size := s.Size(); 100 != size {
+			t.Errorf("s.Size(): 100 != %v\n", size)
+		}
+		if l := len(s.Values()); 100 != l {
+			t.Errorf("len(s.Values()): 100 != %v\n", l)
+		}
+		for _, v := range s.Values() {
+			if v > 100 || v < 0 {
+				t.Errorf("out of range [0, 100): %v\n", v)
+			}
 		}
 	}
 }
 
 func TestExpDecaySample1000(t *testing.T) {
 	rand.Seed(1)
-	s := NewExpDecaySample(100, 0.99)
-	for i := 0; i < 1000; i++ {
-		s.Update(int64(i))
-	}
-	if size := s.Count(); 1000 != size {
-		t.Errorf("s.Count(): 1000 != %v\n", size)
-	}
-	if size := s.Size(); 100 != size {
-		t.Errorf("s.Size(): 100 != %v\n", size)
-	}
-	if l := len(s.Values()); 100 != l {
-		t.Errorf("len(s.Values()): 100 != %v\n", l)
-	}
-	for _, v := range s.Values() {
-		if v > 1000 || v < 0 {
-			t.Errorf("out of range [0, 1000): %v\n", v)
+	fixedSizeSample := NewExpDecaySample(100, 0.99)
+	autoSizedSample := NewAutoSizedExpDecaySample(100, 0.99)
+	for _, s := range []Sample{fixedSizeSample, autoSizedSample} {
+		for i := 0; i < 1000; i++ {
+			s.Update(int64(i))
+		}
+		if size := s.Count(); 1000 != size {
+			t.Errorf("s.Count(): 1000 != %v\n", size)
+		}
+		if size := s.Size(); 100 != size {
+			t.Errorf("s.Size(): 100 != %v\n", size)
+		}
+		if l := len(s.Values()); 100 != l {
+			t.Errorf("len(s.Values()): 100 != %v\n", l)
+		}
+		for _, v := range s.Values() {
+			if v > 1000 || v < 0 {
+				t.Errorf("out of range [0, 1000): %v\n", v)
+			}
 		}
 	}
 }
@@ -150,56 +171,168 @@ func TestExpDecaySample1000(t *testing.T) {
 // effectively freezing the set of samples until a rescale step happens.
 func TestExpDecaySampleNanosecondRegression(t *testing.T) {
 	rand.Seed(1)
-	s := NewExpDecaySample(100, 0.99)
-	for i := 0; i < 100; i++ {
-		s.Update(10)
-	}
-	time.Sleep(1 * time.Millisecond)
-	for i := 0; i < 100; i++ {
-		s.Update(20)
-	}
-	v := s.Values()
-	avg := float64(0)
-	for i := 0; i < len(v); i++ {
-		avg += float64(v[i])
-	}
-	avg /= float64(len(v))
-	if avg > 16 || avg < 14 {
-		t.Errorf("out of range [14, 16]: %v\n", avg)
-	}
-}
-
-func TestExpDecaySampleRescale(t *testing.T) {
-	s := NewExpDecaySample(2, 0.001).(*ExpDecaySample)
-	s.update(time.Now(), 1)
-	s.update(time.Now().Add(time.Hour+time.Microsecond), 1)
-	for _, v := range s.values.Values() {
-		if v.k == 0.0 {
-			t.Fatal("v.k == 0.0")
+	fixedSizeSample := NewExpDecaySample(100, 0.99)
+	autoSizedSample := NewAutoSizedExpDecaySample(100, 0.99)
+	for _, s := range []Sample{fixedSizeSample, autoSizedSample} {
+		for i := 0; i < 100; i++ {
+			s.Update(10)
+		}
+		time.Sleep(1 * time.Millisecond)
+		for i := 0; i < 100; i++ {
+			s.Update(20)
+		}
+		v := s.Values()
+		avg := float64(0)
+		for i := 0; i < len(v); i++ {
+			avg += float64(v[i])
+		}
+		avg /= float64(len(v))
+		if avg > 16 || avg < 14 {
+			t.Errorf("out of range [14, 16]: %v\n", avg)
 		}
 	}
 }
 
+func TestExpDecaySampleRescale(t *testing.T) {
+	fixedSizeSample := NewExpDecaySample(2, 0.001)
+	autoSizedSample := NewAutoSizedExpDecaySample(2, 0.001)
+	for _, s := range []Sample{fixedSizeSample, autoSizedSample} {
+		s := s.(*ExpDecaySample)
+		s.update(time.Now(), 1)
+		s.update(time.Now().Add(time.Hour+time.Microsecond), 1)
+		for _, v := range s.values.Values() {
+			if v.k == 0.0 {
+				t.Fatal("v.k == 0.0")
+			}
+		}
+	}
+}
+
+type autoResizeBehavior struct {
+	updates      int
+	samples      int
+	capacity     int
+	snapshotSize int
+}
+
+func testAutoResizeBehavior(
+	t *testing.T,
+	behavior []autoResizeBehavior,
+	s *ExpDecaySample,
+) {
+	count := int64(0)
+	for si, b := range behavior {
+		for i := 0; i < b.updates; i++ {
+			s.Update(1)
+		}
+		count += int64(b.updates)
+		snapshot := s.Snapshot()
+		if b.snapshotSize == 0 {
+			b.snapshotSize = b.samples
+		}
+		if snapshot.Size() != b.snapshotSize {
+			t.Errorf(
+				"incorrect snapshot size: %v != %v for snap %d \n",
+				snapshot.Size(),
+				b.snapshotSize,
+				si)
+		}
+		if len(s.values.Values()) != b.samples {
+			t.Errorf(
+				"incorrect sample retention: %v != %v for snap %d \n",
+				s.values.Size(),
+				b.samples,
+				si)
+		}
+		if cap(s.values.Values()) != b.capacity {
+			t.Errorf(
+				"incorrect reservoir capacity: %v != %v for snap %d \n",
+				cap(s.values.Values()),
+				b.capacity,
+				si)
+		}
+		if snapshot.Count() != count {
+			t.Errorf(
+				"incorrect snapshot count: %v != %v for snap %d \n",
+				snapshot.Count(),
+				count,
+				si)
+		}
+		if s.Count() != count {
+			t.Errorf(
+				"incorrect count: %v != %v for snap %d \n",
+				s.Count(),
+				count,
+				si)
+		}
+	}
+}
+
+func TestExpDecaySampleAutoResize(t *testing.T) {
+	testAutoResizeBehavior(
+		t,
+		[]autoResizeBehavior {
+			autoResizeBehavior{updates: 1,        samples: 1,   capacity: 50},
+			autoResizeBehavior{updates: 1,        samples: 2,   capacity: 25},
+			autoResizeBehavior{updates: 1,        samples: 3,   capacity: 12},
+			autoResizeBehavior{updates: 1,        samples: 4,   capacity: 8},
+			autoResizeBehavior{updates: 1,        samples: 5,   capacity: 8},
+			autoResizeBehavior{updates: 1,        samples: 6,   capacity: 8},
+			autoResizeBehavior{updates: 1,        samples: 7,   capacity: 8},
+			autoResizeBehavior{updates: 1,        samples: 8,   capacity: 8},
+			autoResizeBehavior{updates: 1,        samples: 8,   capacity: 8},
+			autoResizeBehavior{updates: 2,        samples: 8,   capacity: 8},
+			autoResizeBehavior{updates: 4,        samples: 8,   capacity: 8},
+			autoResizeBehavior{updates: 8,        samples: 8,   capacity: 8},
+			autoResizeBehavior{updates: 15,       samples: 8,   capacity: 8},
+			autoResizeBehavior{updates: 16,       samples: 8,   capacity: 16},
+			autoResizeBehavior{updates: 31,       samples: 16,  capacity: 16},
+			autoResizeBehavior{updates: 32,       samples: 16,  capacity: 32},
+			autoResizeBehavior{updates: 64 + 16,  samples: 32,  capacity: 64},
+			autoResizeBehavior{updates: 128 + 32, samples: 64,  capacity: 100},
+			autoResizeBehavior{updates: 1000,     samples: 100, capacity: 100},
+			autoResizeBehavior{updates: 50,       samples: 100, capacity: 100},
+			autoResizeBehavior{
+				updates: 49,
+				samples: 50,
+				capacity: 50,
+				snapshotSize: 100}},
+		NewAutoSizedExpDecaySample(100, 0.01).(*ExpDecaySample))
+
+	testAutoResizeBehavior(
+		t,
+		[]autoResizeBehavior {
+			autoResizeBehavior{updates: 1,    samples: 1,   capacity: 100},
+			autoResizeBehavior{updates: 1000, samples: 100, capacity: 100}},
+		NewExpDecaySample(100, 0.01).(*ExpDecaySample))
+}
+
 func TestExpDecaySampleSnapshot(t *testing.T) {
 	now := time.Now()
-	rand.Seed(1)
-	s := NewExpDecaySample(100, 0.99)
-	for i := 1; i <= 10000; i++ {
-		s.(*ExpDecaySample).update(now.Add(time.Duration(i)), int64(i))
+	fixedSizeSample := NewExpDecaySample(100, 0.99)
+	autoSizedSample := NewAutoSizedExpDecaySample(100, 0.99)
+	for _, s := range []Sample{fixedSizeSample, autoSizedSample} {
+		rand.Seed(1)
+		for i := 1; i <= 10000; i++ {
+			s.(*ExpDecaySample).update(now.Add(time.Duration(i)), int64(i))
+		}
+		snapshot := s.Snapshot()
+		s.Update(1)
+		testExpDecaySampleStatistics(t, snapshot)
 	}
-	snapshot := s.Snapshot()
-	s.Update(1)
-	testExpDecaySampleStatistics(t, snapshot)
 }
 
 func TestExpDecaySampleStatistics(t *testing.T) {
 	now := time.Now()
-	rand.Seed(1)
-	s := NewExpDecaySample(100, 0.99)
-	for i := 1; i <= 10000; i++ {
-		s.(*ExpDecaySample).update(now.Add(time.Duration(i)), int64(i))
+	fixedSizeSample := NewExpDecaySample(100, 0.99)
+	autoSizedSample := NewAutoSizedExpDecaySample(100, 0.99)
+	for _, s := range []Sample{fixedSizeSample, autoSizedSample} {
+		rand.Seed(1)
+		for i := 1; i <= 10000; i++ {
+			s.(*ExpDecaySample).update(now.Add(time.Duration(i)), int64(i))
+		}
+		testExpDecaySampleStatistics(t, s)
 	}
-	testExpDecaySampleStatistics(t, s)
 }
 
 func TestUniformSample(t *testing.T) {
