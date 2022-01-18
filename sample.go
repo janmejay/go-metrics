@@ -465,10 +465,17 @@ func SampleVariance(values []int64) float64 {
 //
 // <http://www.cs.umd.edu/~samir/498/vitter.pdf>
 type UniformSample struct {
-	count         int64
-	mutex         sync.Mutex
-	reservoirSize int
-	values        []int64
+	count             int64
+	mutex             sync.Mutex
+	reservoirSize     int
+	maxReservoirSize  int
+	datapointsDropped int
+	autoResize        bool
+	values            []int64
+}
+
+func newUniformSampleBuffer(reservoirSize int) []int64 {
+	return make([]int64, 0, reservoirSize)
 }
 
 // NewUniformSample constructs a new uniform sample with the given reservoir
@@ -478,9 +485,22 @@ func NewUniformSample(reservoirSize int) Sample {
 		return NilSample{}
 	}
 	return &UniformSample{
-		reservoirSize: reservoirSize,
-		values:        make([]int64, 0, reservoirSize),
+		reservoirSize:    reservoirSize,
+		maxReservoirSize: reservoirSize,
+		autoResize:       false,
+		datapointsDropped: 0,
+		values:            newUniformSampleBuffer(reservoirSize),
 	}
+}
+
+// NewUniformSample constructs a new uniform sample with the given reservoir
+// size.
+func NewAutoSizedUniformSample(reservoirSize int) Sample {
+	s := NewUniformSample(reservoirSize)
+	if !UseNilMetrics {
+		s.(*UniformSample).autoResize = true
+	}
+	return s
 }
 
 // Clear clears all samples.
@@ -550,6 +570,20 @@ func (s *UniformSample) Snapshot() Sample {
 	defer s.mutex.Unlock()
 	values := make([]int64, len(s.values))
 	copy(values, s.values)
+	if s.autoResize {
+		newReservoirSize := computeIdealReservoirSize(
+			s.reservoirSize,
+			s.datapointsDropped,
+			s.maxReservoirSize)
+		if newReservoirSize != s.reservoirSize {
+			s.reservoirSize = newReservoirSize
+			s.values = newUniformSampleBuffer(s.reservoirSize)
+			for _, v := range values {
+				s.update(v)
+			}
+		}
+		s.datapointsDropped = 0
+	}
 	return &SampleSnapshot{
 		count:  s.count,
 		values: values,
@@ -570,19 +604,24 @@ func (s *UniformSample) Sum() int64 {
 	return SampleSum(s.values)
 }
 
-// Update samples a new value.
-func (s *UniformSample) Update(v int64) {
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
-	s.count++
+func (s *UniformSample) update(v int64) {
 	if len(s.values) < s.reservoirSize {
 		s.values = append(s.values, v)
 	} else {
+		s.datapointsDropped++
 		r := rand.Int63n(s.count)
 		if r < int64(len(s.values)) {
 			s.values[int(r)] = v
 		}
 	}
+}
+
+// Update samples a new value.
+func (s *UniformSample) Update(v int64) {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+	s.count++
+	s.update(v)
 }
 
 // Values returns a copy of the values in the sample.

@@ -27,6 +27,15 @@ type Timer interface {
 	Variance() float64
 }
 
+const (
+	// DefaultTimerExpDecayReservoirSize is the default histogram size used for
+	// initializing ExpDecaySample reservoir for Timers.
+	DefaultTimerExpDecayReservoirSize = 1028
+	// DefaultTimerExpDecayAlpha is the default value for coefficient used to
+	// implement exponential decay for default timer histogram.
+	DefaultTimerExpDecayAlpha = 0.015
+)
+
 // GetOrRegisterTimer returns an existing Timer or constructs and registers a
 // new StandardTimer.
 // Be sure to unregister the meter from the registry once it is of no use to
@@ -70,7 +79,10 @@ func NewTimer() Timer {
 		return NilTimer{}
 	}
 	return &StandardTimer{
-		histogram: NewHistogram(NewExpDecaySample(1028, 0.015)),
+		histogram: NewHistogram(
+			NewExpDecaySample(
+				DefaultTimerExpDecayReservoirSize,
+				DefaultTimerExpDecayAlpha)),
 		meter:     NewMeter(),
 	}
 }

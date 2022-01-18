@@ -215,7 +215,7 @@ type autoResizeBehavior struct {
 	snapshotSize int
 }
 
-func testAutoResizeBehavior(
+func testExpDecaySampleAutoResizeBehavior(
 	t *testing.T,
 	behavior []autoResizeBehavior,
 	s *ExpDecaySample,
@@ -269,7 +269,7 @@ func testAutoResizeBehavior(
 }
 
 func TestExpDecaySampleAutoResize(t *testing.T) {
-	testAutoResizeBehavior(
+	testExpDecaySampleAutoResizeBehavior(
 		t,
 		[]autoResizeBehavior {
 			autoResizeBehavior{updates: 1,        samples: 1,   capacity: 50},
@@ -299,7 +299,7 @@ func TestExpDecaySampleAutoResize(t *testing.T) {
 				snapshotSize: 100}},
 		NewAutoSizedExpDecaySample(100, 0.01).(*ExpDecaySample))
 
-	testAutoResizeBehavior(
+	testExpDecaySampleAutoResizeBehavior(
 		t,
 		[]autoResizeBehavior {
 			autoResizeBehavior{updates: 1,    samples: 1,   capacity: 100},
@@ -336,62 +336,167 @@ func TestExpDecaySampleStatistics(t *testing.T) {
 }
 
 func TestUniformSample(t *testing.T) {
-	rand.Seed(1)
-	s := NewUniformSample(100)
-	for i := 0; i < 1000; i++ {
-		s.Update(int64(i))
-	}
-	if size := s.Count(); 1000 != size {
-		t.Errorf("s.Count(): 1000 != %v\n", size)
-	}
-	if size := s.Size(); 100 != size {
-		t.Errorf("s.Size(): 100 != %v\n", size)
-	}
-	if l := len(s.Values()); 100 != l {
-		t.Errorf("len(s.Values()): 100 != %v\n", l)
-	}
-	for _, v := range s.Values() {
-		if v > 1000 || v < 0 {
-			t.Errorf("out of range [0, 100): %v\n", v)
+	fixedSizeSample := NewUniformSample(100)
+	autoSizedSample := NewAutoSizedUniformSample(100)
+	for _, s := range []Sample{fixedSizeSample, autoSizedSample} {
+		rand.Seed(1)
+		for i := 0; i < 1000; i++ {
+			s.Update(int64(i))
+		}
+		if size := s.Count(); 1000 != size {
+			t.Errorf("s.Count(): 1000 != %v\n", size)
+		}
+		if size := s.Size(); 100 != size {
+			t.Errorf("s.Size(): 100 != %v\n", size)
+		}
+		if l := len(s.Values()); 100 != l {
+			t.Errorf("len(s.Values()): 100 != %v\n", l)
+		}
+		for _, v := range s.Values() {
+			if v > 1000 || v < 0 {
+				t.Errorf("out of range [0, 100): %v\n", v)
+			}
 		}
 	}
 }
 
 func TestUniformSampleIncludesTail(t *testing.T) {
-	rand.Seed(1)
-	s := NewUniformSample(100)
-	max := 100
-	for i := 0; i < max; i++ {
-		s.Update(int64(i))
+	fixedSizeSample := NewUniformSample(100)
+	autoSizedSample := NewAutoSizedUniformSample(100)
+	for _, s := range []Sample{fixedSizeSample, autoSizedSample} {
+		rand.Seed(1)
+		max := 100
+		for i := 0; i < max; i++ {
+			s.Update(int64(i))
+		}
+		v := s.Values()
+		sum := 0
+		exp := (max - 1) * max / 2
+		for i := 0; i < len(v); i++ {
+			sum += int(v[i])
+		}
+		if exp != sum {
+			t.Errorf("sum: %v != %v\n", exp, sum)
+		}
 	}
-	v := s.Values()
-	sum := 0
-	exp := (max - 1) * max / 2
-	for i := 0; i < len(v); i++ {
-		sum += int(v[i])
+}
+
+func testUniformSampleAutoResizeBehavior(
+	t *testing.T,
+	behavior []autoResizeBehavior,
+	s *UniformSample,
+) {
+	count := int64(0)
+	for si, b := range behavior {
+		for i := 0; i < b.updates; i++ {
+			s.Update(1)
+		}
+		count += int64(b.updates)
+		snapshot := s.Snapshot()
+		if b.snapshotSize == 0 {
+			b.snapshotSize = b.samples
+		}
+		if snapshot.Size() != b.snapshotSize {
+			t.Errorf(
+				"incorrect snapshot size: %v != %v for snap %d \n",
+				snapshot.Size(),
+				b.snapshotSize,
+				si)
+		}
+		if len(s.values) != b.samples {
+			t.Errorf(
+				"incorrect sample retention: %v != %v for snap %d \n",
+				len(s.values),
+				b.samples,
+				si)
+		}
+		if cap(s.values) != b.capacity {
+			t.Errorf(
+				"incorrect reservoir capacity: %v != %v for snap %d \n",
+				cap(s.values),
+				b.capacity,
+				si)
+		}
+		if snapshot.Count() != count {
+			t.Errorf(
+				"incorrect snapshot count: %v != %v for snap %d \n",
+				snapshot.Count(),
+				count,
+				si)
+		}
+		if s.Count() != count {
+			t.Errorf(
+				"incorrect count: %v != %v for snap %d \n",
+				s.Count(),
+				count,
+				si)
+		}
 	}
-	if exp != sum {
-		t.Errorf("sum: %v != %v\n", exp, sum)
-	}
+}
+
+func TestUniformSampleAutoResize(t *testing.T) {
+	testUniformSampleAutoResizeBehavior(
+		t,
+		[]autoResizeBehavior {
+			autoResizeBehavior{updates: 1,        samples: 1,   capacity: 50},
+			autoResizeBehavior{updates: 1,        samples: 2,   capacity: 25},
+			autoResizeBehavior{updates: 1,        samples: 3,   capacity: 12},
+			autoResizeBehavior{updates: 1,        samples: 4,   capacity: 8},
+			autoResizeBehavior{updates: 1,        samples: 5,   capacity: 8},
+			autoResizeBehavior{updates: 1,        samples: 6,   capacity: 8},
+			autoResizeBehavior{updates: 1,        samples: 7,   capacity: 8},
+			autoResizeBehavior{updates: 1,        samples: 8,   capacity: 8},
+			autoResizeBehavior{updates: 1,        samples: 8,   capacity: 8},
+			autoResizeBehavior{updates: 2,        samples: 8,   capacity: 8},
+			autoResizeBehavior{updates: 4,        samples: 8,   capacity: 8},
+			autoResizeBehavior{updates: 8,        samples: 8,   capacity: 8},
+			autoResizeBehavior{updates: 15,       samples: 8,   capacity: 8},
+			autoResizeBehavior{updates: 16,       samples: 8,   capacity: 16},
+			autoResizeBehavior{updates: 31,       samples: 16,  capacity: 16},
+			autoResizeBehavior{updates: 32,       samples: 16,  capacity: 32},
+			autoResizeBehavior{updates: 64 + 16,  samples: 32,  capacity: 64},
+			autoResizeBehavior{updates: 128 + 32, samples: 64,  capacity: 100},
+			autoResizeBehavior{updates: 1000,     samples: 100, capacity: 100},
+			autoResizeBehavior{updates: 50,       samples: 100, capacity: 100},
+			autoResizeBehavior{
+				updates: 49,
+				samples: 50,
+				capacity: 50,
+				snapshotSize: 100}},
+		NewAutoSizedUniformSample(100).(*UniformSample))
+
+	testUniformSampleAutoResizeBehavior(
+		t,
+		[]autoResizeBehavior {
+			autoResizeBehavior{updates: 1,    samples: 1,   capacity: 100},
+			autoResizeBehavior{updates: 1000, samples: 100, capacity: 100}},
+		NewUniformSample(100).(*UniformSample))
 }
 
 func TestUniformSampleSnapshot(t *testing.T) {
-	s := NewUniformSample(100)
-	for i := 1; i <= 10000; i++ {
-		s.Update(int64(i))
+	fixedSizeSample := NewUniformSample(100)
+	autoSizedSample := NewAutoSizedUniformSample(100)
+	for _, s := range []Sample{fixedSizeSample, autoSizedSample} {
+		rand.Seed(1)
+		for i := 1; i <= 10000; i++ {
+			s.Update(int64(i))
+		}
+		snapshot := s.Snapshot()
+		s.Update(1)
+		testUniformSampleStatistics(t, snapshot)
 	}
-	snapshot := s.Snapshot()
-	s.Update(1)
-	testUniformSampleStatistics(t, snapshot)
 }
 
 func TestUniformSampleStatistics(t *testing.T) {
-	rand.Seed(1)
-	s := NewUniformSample(100)
-	for i := 1; i <= 10000; i++ {
-		s.Update(int64(i))
+	fixedSizeSample := NewUniformSample(100)
+	autoSizedSample := NewAutoSizedUniformSample(100)
+	for _, s := range []Sample{fixedSizeSample, autoSizedSample} {
+		rand.Seed(1)
+		for i := 1; i <= 10000; i++ {
+			s.Update(int64(i))
+		}
+		testUniformSampleStatistics(t, s)
 	}
-	testUniformSampleStatistics(t, s)
 }
 
 func benchmarkSample(b *testing.B, s Sample) {
@@ -471,26 +576,30 @@ func TestUniformSampleConcurrentUpdateCount(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping in short mode")
 	}
-	s := NewUniformSample(100)
-	for i := 0; i < 100; i++ {
-		s.Update(int64(i))
-	}
-	quit := make(chan struct{})
-	go func() {
-		t := time.NewTicker(10 * time.Millisecond)
-		for {
-			select {
-			case <-t.C:
-				s.Update(rand.Int63())
-			case <-quit:
-				t.Stop()
-				return
-			}
+	fixedSizeSample := NewUniformSample(100)
+	autoSizedSample := NewAutoSizedUniformSample(100)
+	for _, s := range []Sample{fixedSizeSample, autoSizedSample} {
+		rand.Seed(1)
+		for i := 0; i < 100; i++ {
+			s.Update(int64(i))
 		}
-	}()
-	for i := 0; i < 1000; i++ {
-		s.Count()
-		time.Sleep(5 * time.Millisecond)
+		quit := make(chan struct{})
+		go func() {
+			t := time.NewTicker(10 * time.Millisecond)
+			for {
+				select {
+				case <-t.C:
+					s.Update(rand.Int63())
+				case <-quit:
+					t.Stop()
+					return
+				}
+			}
+		}()
+		for i := 0; i < 1000; i++ {
+			s.Count()
+			time.Sleep(5 * time.Millisecond)
+		}
+		quit <- struct{}{}
 	}
-	quit <- struct{}{}
 }
