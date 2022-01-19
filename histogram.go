@@ -186,7 +186,7 @@ func (h *StandardHistogram) Sample() Sample { return h.sample }
 
 // Snapshot returns a read-only copy of the histogram.
 func (h *StandardHistogram) Snapshot() Histogram {
-	return &HistogramSnapshot{sample: h.sample.Snapshot().(*SampleSnapshot)}
+	return &HistogramSnapshot{sample: h.sample.Snapshot()}
 }
 
 // StdDev returns the standard deviation of the values in the sample.
