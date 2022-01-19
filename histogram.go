@@ -47,7 +47,7 @@ func NewRegisteredHistogram(name string, r Registry, s Sample) Histogram {
 
 // HistogramSnapshot is a read-only copy of another Histogram.
 type HistogramSnapshot struct {
-	sample *SampleSnapshot
+	sample Sample
 }
 
 // Clear panics.
